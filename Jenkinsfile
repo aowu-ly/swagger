@@ -20,6 +20,6 @@ node {
       }
    }
    stage('Deploy') {
-      sh "'/scripts/deploy.sh' ${workspace} deploy"
+      sh "'/scripts/deploy.bat' ${workspace} deploy"
    }
 }
