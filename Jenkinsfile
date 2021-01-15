@@ -8,7 +8,7 @@ node {
       // ** NOTE: This 'M3' Maven tool must be configured
       // ** in the global configuration.
       //mvnHome = tool 'M3'
-      mvnHome = tool 'D:\ly\apache-maven-3.6.3\apache-maven-3.6.3'
+      mvnHome = tool 'maven'
    }
    stage('Build') {
       // Run the maven build
