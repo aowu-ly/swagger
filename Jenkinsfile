@@ -3,7 +3,7 @@ node {
    def workspace = pwd()
    stage('Preparation') { // for display purposes
       // Get some code from a GitHub repository
-      git 'http://127.0.0.1:8080/git/demo.git'
+      git 'https://github.com/aowu-ly/swagger.git'
       // Get the Maven tool.
       // ** NOTE: This 'M3' Maven tool must be configured
       // ** in the global configuration.
