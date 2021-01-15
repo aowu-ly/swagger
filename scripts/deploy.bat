@@ -1,120 +1,81 @@
-#!/bin/bash
-#集群IP列表，多个用空格分开
-#NODE_LIST="192.168.161.118 192.168.161.117"
-NODE_LIST="127.0.0.1"
-#应用部署到的远程服务器目录
-REMOTE_DIR="/home/project"
-#需要部署的项目名称（需和maven的project名一样,多个用空格分开）
-#NEED_DEPLOY_PROJECT="user-server user-mgr info-mgr"
-NEED_DEPLOY_PROJECT="swagger"
-# Date/Time Veriables
-LOG_DATE='date "+%Y-%m-%d"'
-LOG_TIME='date "+%H:%M:%S"'
-CDATE=$(date "+%Y%m%d")
-CTIME=$(date "+%H%M%S")
-#Shell Env
-SHELL_NAME="deploy.bat"
-SHELL_DIR="/deploy/log"
-SHELL_LOG="${SHELL_DIR}/${SHELL_NAME}.log"
-#Code Env
-JAR_DIR="/deploy/jar"
-CONFIG_DIR="/deploy/config"
-LOCK_FILE="/tmp/deploy.lock"
-usage(){
-    echo  $"Usage: $0 [projectJarPath] [ deploy | rollback ]"
+#!groovy
+
+String workspace = "C:\\Windows\\System32\\config\\systemprofile\\AppData\\Local\\Jenkins\\.jenkins\\workspace";
+String sourceCodePath = "";
+pipeline{
+	agent {
+		node{label "master" //指定运行节点的标签或者名称
+			 customWorkspace "${workspace}" //指定运行工作目录（可选）
+		}
+	}
+	options {
+		timestamps() //日志内容会包含时间信息，需要安装Timestamper插件
+		skipDefaultCheckout() //删除隐式checkout scm语句
+		disableConcurrentBuilds() //禁止并行
+		timeout(time:1,unit:'HOURS') //流水线超时时间设置为1h
+	}
+	stages {
+		//下载代码
+		stage("GetCode"){ //阶段名称
+			steps{ //步骤
+				timeout(time:5, unit:"MINUTES"){ //步骤超时时间
+					script{ //填写运行代码
+						println('获取代码');
+					}
+				}
+			}
+		}
+		//代码扫描
+		stage("ScanCode"){ //阶段名称
+			steps{ //步骤
+				timeout(time:20, unit:"MINUTES"){ //步骤超时时间
+					script{ //填写运行代码
+						println('扫描代码');
+					}
+				}
+			}
+		}
+		//构建
+		stage("Build"){ //阶段名称
+			steps{ //步骤
+				timeout(time:10, unit:"MINUTES"){ //步骤超时时间
+					script{ //填写运行代码
+						println('应用打包');
+					}
+				}
+			}
+		}
+		//代码发布
+		stage("Release"){ //阶段名称
+			steps{ //步骤
+				timeout(time:20, unit:"MINUTES"){ //步骤超时时间
+					script{ //填写运行代码
+						println('发布代码');
+					}
+				}
+			}
+		}
+	}
+	post{
+		always{ //总是执行的脚本片段
+			script {
+				println('always');
+			}
+		}
+		success{ //成功后执行
+			script {
+				currentBuild.description += "\n 构建成功"; //currentBuild是一个全局变量
+			}
+		}
+		failure{ //失败后执行
+			script {
+				currentBuild.description += "\n 构建失败";
+			}
+		}
+		aborted{ //取消后执行
+			script {
+				currentBuild.description += "\n 构建取消";
+			}
+		}
+	}
 }
-init() {
-    create_dir $SHELL_DIR;
-    create_dir $JAR_DIR;
-    create_dir $CONFIG_DIR;
-}
-create_dir() {
-   if [ ! -d $1 ]; then
-       mkdir -p $1
-   fi
-}
-shell_lock(){
-    touch ${LOCK_FILE}
-}
-shell_unlock(){
-    rm -f ${LOCK_FILE}
-}
-write_log(){
-    LOGINFO=$1
-    echo "`eval ${LOG_DATE}` `eval ${LOG_TIME}` : ${SHELL_NAME} : ${LOGINFO}"|tee -a ${SHELL_LOG}
-}
-#拷贝jenkins的工作空间构建的jar包到特定目录，备份，为以后回滚等等操作
-copy_jar() {
-    TARGET_DIR=${JAR_DIR}/${CDATE}${CTIME}
-    write_log "Copy jenkins workspace jar file to ${TARGET_DIR}"
-    mkdir -p $TARGET_DIR
-    for project in $NEED_DEPLOY_PROJECT;do
-      mkdir -p $TARGET_DIR/${project}
-      find $1 -name ${project}*.jar -exec cp {} $TARGET_DIR/${project}/ \;
-    done
-}
-#拷贝应用的jar包到远程服务器
-scp_jar(){
-    SOURCE_DIR=${JAR_DIR}/${CDATE}${CTIME}
-    write_log "Scp jar file to remote machine..."
-    for node in $NODE_LIST;do
-      scp -r ${SOURCE_DIR}/* $node:${REMOTE_DIR}
-      write_log "Scp to ${node} complete."
-    done
-}
-# 杀掉远程服务器上正在运行的项目
-cluster_node_remove(){
-    write_log "Kill all runing project on the cluster..."
-    for project in $NEED_DEPLOY_PROJECT;do
-      for node in $NODE_LIST;do
-        pid=$(ssh $node "ps aux|grep ${project}|grep -v grep|awk '{print $2}'"|awk '{print $2}')
-        if [ ! -n "$pid" ]; then
-      write_log "${project} is not runing..."
-    else
-          ssh $node "kill -9 $pid"
-      write_log "Killed ${project} at ${node}..."
-    fi
-      done
-    done
-}
-#在远程服务器上启动项目
-cluster_deploy(){
-    write_log "Up all project on the cluster..."
-    for project in $NEED_DEPLOY_PROJECT;do
-      for node in $NODE_LIST;do
-        ssh $node "cd ${REMOTE_DIR}/${project};nohup java -jar ${project}*.jar >/dev/null 2>&1 &"
-    write_log "Up ${project} on $node complete..."
-      done
-    done
-}
-#回滚（暂未实现）
-rollback(){
-    echo rollback
-}
-#入口
-main(){
-    if [ -f ${LOCK_FILE} ];then
-        write_log "Deploy is running"  && exit;
-    fi
-    WORKSPACE=$1
-    DEPLOY_METHOD=$2
-    init;
-    case $DEPLOY_METHOD in
-    deploy)
-        shell_lock;
-        copy_jar $WORKSPACE;
-        scp_jar;
-        cluster_node_remove;
-        cluster_deploy;
-        shell_unlock;
-        ;;
-    rollback)
-        shell_lock;
-        rollback;
-        shell_unlock;
-        ;;
-    *)
-        usage;
-    esac
-}
-main $1 $2
