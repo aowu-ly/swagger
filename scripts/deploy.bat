@@ -13,7 +13,7 @@ LOG_TIME='date "+%H:%M:%S"'
 CDATE=$(date "+%Y%m%d")
 CTIME=$(date "+%H%M%S")
 #Shell Env
-SHELL_NAME="deploy.sh"
+SHELL_NAME="deploy.bat"
 SHELL_DIR="/deploy/log"
 SHELL_LOG="${SHELL_DIR}/${SHELL_NAME}.log"
 #Code Env
